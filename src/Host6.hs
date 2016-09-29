@@ -12,11 +12,8 @@ Portability : non-portable
 {-# LANGUAGE RecursiveDo #-}
 module Host6 (
     go6
-  , guest
-  , interpret
-  , mkInterpretable
-  , InputCmd(..)
-  , OutputCmd(..)
+  , testRun
+  , testRun'
   ) where
 
 import Data.Maybe (isJust)
@@ -226,6 +223,15 @@ guest' (Input eOpen eRead) = mdo
       , "Bye" <$ eQuit
       ]
   return $ Output eWrite eQuit
+
+testInput :: [Maybe InputCmd]
+testInput = [Just Open, Nothing, Just (Read "Hello"), Just (Read "/quit"), Just (Read "Oops")]
+
+testRun :: IO [Maybe [OutputCmd]]
+testRun = interpret (mkInterpretable guest) testInput
+
+testRun' :: IO [Maybe [OutputCmd]]
+testRun' = interpret (mkInterpretable guest') testInput
 
 guestIO :: SampleApp6IO t m
 guestIO (Output eWrite eQuit) = do
