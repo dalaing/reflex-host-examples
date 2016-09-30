@@ -9,11 +9,11 @@ Portability : non-portable
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE RecursiveDo #-}
 module Host6 (
     go6
-  , testRun
-  , testRun'
+  , Input(..)
+  , Output(..)
+  , SampleApp6
   ) where
 
 import Data.Maybe (isJust)
@@ -25,10 +25,6 @@ import Control.Monad.Ref
 import Data.IORef (readIORef)
 import System.IO
 
-import Data.GADT.Compare
-import Data.Dependent.Sum
-import Data.Dependent.Map
-
 import Reflex
 import Reflex.Host.Class
 import Reflex.PerformEvent.Base
@@ -38,103 +34,10 @@ data Input t = Input {
   , ieRead :: Event t String
   }
 
-data InputCmd =
-    Open
-  | Read String
-  deriving (Eq, Ord, Show)
-
-data GInputCmd a where
-  ICOpen :: GInputCmd ()
-  ICRead :: GInputCmd String
-
-liftInputCmd :: InputCmd -> DSum GInputCmd Identity
-liftInputCmd Open     = ICOpen :=> Identity ()
-liftInputCmd (Read s) = ICRead :=> Identity s
-
-instance GEq GInputCmd where
-  geq a b = case (a, b) of
-    (ICOpen, ICOpen) -> Just Refl
-    (ICRead, ICRead) -> Just Refl
-    _ -> Nothing
-
-instance GCompare GInputCmd where
-  gcompare a b = case (a, b) of
-    (ICOpen, ICOpen) -> GEQ
-    (ICOpen, ICRead) -> GLT
-    (ICRead, ICOpen) -> GGT
-    (ICRead, ICRead) -> GEQ
-
-fanInput :: Reflex t => Event t InputCmd -> Input t
-fanInput e =
-  let
-    es = fan $ (fromList . pure . liftInputCmd) <$> e
-  in
-    Input (select es ICOpen) (select es ICRead)
-
 data Output t = Output {
     oeWrite :: Event t String
   , oeQuit  :: Event t ()
   }
-
-data OutputCmd =
-    Write String
-  | Quit
-  deriving (Eq, Ord, Show)
-
-data GOutputCmd a where
-  OCWrite :: GOutputCmd String
-  OCQuit  :: GOutputCmd ()
-
-lowerOutputCmd :: DSum GOutputCmd Identity -> OutputCmd
-lowerOutputCmd g = case g of
-  OCWrite :=> Identity s -> Write s
-  OCQuit :=> Identity () -> Quit
-
-instance GEq GOutputCmd where
-  geq a b = case (a, b) of
-    (OCWrite, OCWrite) -> Just Refl
-    (OCQuit, OCQuit) -> Just Refl
-    _ -> Nothing
-
-instance GCompare GOutputCmd where
-  gcompare a b = case (a, b) of
-    (OCWrite, OCWrite) -> GEQ
-    (OCWrite, OCQuit) -> GLT
-    (OCQuit, OCWrite) -> GGT
-    (OCQuit, OCQuit) -> GEQ
-
-mergeOutput :: Reflex t => Output t -> Event t [OutputCmd]
-mergeOutput (Output eWrite eQuit) =
-  fmap (fmap lowerOutputCmd . toList) .
-  merge $
-  fromList [OCWrite :=> eWrite, OCQuit :=> eQuit]
-
-type Interpretable t m a b = (Reflex t, MonadHold t m, MonadFix m)
-                           => Event t a
-                           -> m (Event t b)
-
-mkInterpretable :: Reflex t => SampleApp6 t m -> Interpretable t m InputCmd [OutputCmd]
-mkInterpretable guest = \i -> do
-  o <- guest . fanInput $ i
-  return $ mergeOutput o
-
-interpret :: (forall t m. Interpretable t m a b) -> [Maybe a] -> IO [Maybe b]
-interpret guest inputs =
-  runSpiderHost $ do
-    (eIn, eInTriggerRef) <- newEventWithTriggerRef
-    eOut <- runHostFrame $ guest eIn
-    hOut <- subscribeEvent eOut
-
-    let
-      handleFrame i = do
-        mt <- readRef eInTriggerRef
-        case mt of
-          Nothing -> return Nothing
-          Just t -> fireEventsAndRead (maybe [] (\x -> [t :=> Identity x]) i) $ do
-            mOut <- readEvent hOut
-            sequence mOut
-
-    traverse handleFrame inputs
 
 type SampleApp6 t m = (Reflex t, MonadHold t m, MonadFix m)
                   => Input t
@@ -156,8 +59,7 @@ type SampleApp6IO t m = ( Reflex t
 host :: (forall t m. SampleApp6 t m)
      -> (forall t m. SampleApp6IO t m)
      -> IO ()
-host myGuest myGuestIO = do
-
+host myGuest myGuestIO =
   runSpiderHost $ do
     (eOpen, eOpenTriggerRef) <- newEventWithTriggerRef
     (eRead, eReadTriggerRef) <- newEventWithTriggerRef
@@ -168,9 +70,8 @@ host myGuest myGuestIO = do
     hQuit  <- subscribeEvent eQuit
 
     let
-      readPhase = do
-        mQuit  <- readEvent hQuit >>= sequence
-        return mQuit
+      readPhase =
+        readEvent hQuit >>= sequence
 
       loop = do
         input <- liftIO getLine
@@ -201,7 +102,7 @@ host myGuest myGuestIO = do
 guest :: SampleApp6 t m
 guest (Input eOpen eRead) = do
   let
-    eMessage =       ffilter ((/= "/") . take 1) eRead
+    eMessage =       ffilter (/= "/quit") eRead
     eQuit    = () <$ ffilter (== "/quit") eRead
     eWrite   = leftmost [
         "Hi"  <$ eOpen
@@ -209,29 +110,6 @@ guest (Input eOpen eRead) = do
       , "Bye" <$ eQuit
       ]
   return $ Output eWrite eQuit
-
-guest' :: SampleApp6 t m
-guest' (Input eOpen eRead) = mdo
-  bHasNotQuit <- hold True (False <$ eQuit)
-  let
-    eRead' = gate bHasNotQuit eRead
-    eMessage =       ffilter ((/= "/") . take 1) eRead'
-    eQuit    = () <$ ffilter (== "/quit") eRead'
-    eWrite   = leftmost [
-        "Hi"  <$ eOpen
-      ,          eMessage
-      , "Bye" <$ eQuit
-      ]
-  return $ Output eWrite eQuit
-
-testInput :: [Maybe InputCmd]
-testInput = [Just Open, Nothing, Just (Read "Hello"), Just (Read "/quit"), Just (Read "Oops")]
-
-testRun :: IO [Maybe [OutputCmd]]
-testRun = interpret (mkInterpretable guest) testInput
-
-testRun' :: IO [Maybe [OutputCmd]]
-testRun' = interpret (mkInterpretable guest') testInput
 
 guestIO :: SampleApp6IO t m
 guestIO (Output eWrite eQuit) = do
