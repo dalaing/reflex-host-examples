@@ -8,6 +8,11 @@ Portability : non-portable
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Host6.Test (
     InputCmd(..)
   , OutputCmd(..)
@@ -15,12 +20,16 @@ module Host6.Test (
   ) where
 
 import Data.Functor.Identity
+import Control.Monad.Fix
 
 import Data.GADT.Compare
 import Data.Dependent.Sum
 import Data.Dependent.Map
 
 import Reflex
+
+import Control.Lens
+import Control.Lens.TH
 
 import Host6
 import Interpret
@@ -29,6 +38,8 @@ data InputCmd =
     Open
   | Read String
   deriving (Eq, Ord, Show)
+
+makePrisms ''InputCmd
 
 data GInputCmd a where
   ICOpen :: GInputCmd ()
@@ -63,6 +74,8 @@ data OutputCmd =
   | Quit
   deriving (Eq, Ord, Show)
 
+makePrisms ''OutputCmd
+
 data GOutputCmd a where
   OCWrite :: GOutputCmd String
   OCQuit  :: GOutputCmd ()
@@ -91,17 +104,40 @@ mergeOutput (Output eWrite eQuit) =
   merge $
   fromList [OCWrite :=> eWrite, OCQuit :=> eQuit]
 
-mkInterpretable :: Reflex t => SampleApp6 t m -> Interpretable t m InputCmd [OutputCmd]
-mkInterpretable guest = \i -> do
+mkInterpretable' :: Reflex t => SampleApp6 t m -> Interpretable t m InputCmd [OutputCmd]
+mkInterpretable' guest = \i -> do
   o <- guest . fanInput $ i
   return $ mergeOutput o
 
-test :: (forall t m. SampleApp6 t m) -> [Maybe InputCmd] -> IO [Maybe [OutputCmd]]
+test' :: (forall t m. SampleApp6 t m) -> [Maybe InputCmd] -> IO [Maybe [OutputCmd]]
+test' app =
+  interpret (mkInterpretable' app)
+
+instance FanIn Input where
+  type TestEventInput Input = InputCmd
+  fanIn =
+    Input <$>
+      fanE _Open <*>
+      fanE _Read
+
+instance MergeOut Output where
+  type TestEventOutput Output = OutputCmd
+  mergeOut (Output eWrite eQuit)=
+    mergeWith (++) [
+        mergeE _Write eWrite
+      , mergeE _Quit eQuit
+      ]
+
+-- It would be nice to wrap this up so that we have
+-- - the FanIn instance
+-- - the MergeOut instance
+-- - the constraints that we need to hold for our app
+test :: (FanIn i, MergeOut o) => (forall t m. (Reflex t, MonadHold t m, MonadFix m) => (i t -> m (o t))) -> [Maybe (TestEventInput i)] -> IO [Maybe [TestEventOutput o]]
 test app =
   interpret (mkInterpretable app)
 
 -- |
--- >>> test guest [Just Open, Just (Read "Hello"), Just (Read "/quit"), Just (Read "Oops")]
+-- >>> test' guest [Just Open, Just (Read "Hello"), Just (Read "/quit"), Just (Read "Oops")]
 -- [Just [Write "Hi"],Just [Write "Hello"],Just [Write "Bye",Quit],Just [Write "Oops"]]
 guest :: SampleApp6 t m
 guest (Input eOpen eRead) = do

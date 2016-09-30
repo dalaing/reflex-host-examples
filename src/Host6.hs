@@ -25,6 +25,8 @@ import Control.Monad.Ref
 import Data.IORef (readIORef)
 import System.IO
 
+import Data.Dependent.Sum
+
 import Reflex
 import Reflex.Host.Class
 import Reflex.PerformEvent.Base
