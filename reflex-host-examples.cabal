@@ -22,8 +22,9 @@ library
                      , Host4
                      , Host5
                      , Host6
-                     , Host6.Test
+                     -- , Host6.Test
                      , Interpret
+                     -- , Interpret2
   -- other-modules:       
   other-extensions:    RankNTypes
   build-depends:       base          >= 4.8  && < 4.10
@@ -35,6 +36,7 @@ library
                      , lens          >= 4.13 && < 4.15
                      , reflex        >= 0.5  && < 0.6
   hs-source-dirs:      src
+  ghc-options:         -Wall
   default-language:    Haskell2010
 
 test-suite doctests

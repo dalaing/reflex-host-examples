@@ -38,17 +38,19 @@ fanE :: Reflex t => Prism' a e -> Event t a -> Event t e
 fanE p = fmapMaybe (preview p)
 
 class FanIn a where
-  type TestEventInput a
-  fanIn :: Reflex t => Event t (TestEventInput a) -> a t
+  type InputE a
+  fanIn :: Reflex t => Event t (InputE a) -> a t
 
 mergeE :: Reflex t => Prism' a e -> Event t e -> Event t [a]
 mergeE p = fmap (pure . review p)
 
 class MergeOut a where
-  type TestEventOutput a
-  mergeOut :: Reflex t => a t -> Event t [TestEventOutput a]
+  type OutputE a
+  mergeOut :: Reflex t => a t -> Event t [OutputE a]
 
-mkInterpretable :: (Reflex t, FanIn i, MergeOut o) => (i t -> m (o t)) -> Interpretable t m (TestEventInput i) [TestEventOutput o]
+-- TODO Should we try to handle simultaneous inputs as well as outputs?
+-- Do we stil need the Maybe in interpret if we're working with lists of lists?
+mkInterpretable :: (Reflex t, FanIn i, MergeOut o) => (i t -> m (o t)) -> Interpretable t m (InputE i) [OutputE o]
 mkInterpretable f = \i -> do
   o <- f . fanIn $ i
   return $ mergeOut o
