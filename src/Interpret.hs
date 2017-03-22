@@ -20,7 +20,6 @@ module Interpret (
   ) where
 
 import Control.Monad.Ref
-import Control.Monad.Fix
 import Data.Functor.Identity
 
 import Control.Lens
@@ -30,7 +29,7 @@ import Data.Dependent.Sum
 import Reflex
 import Reflex.Host.Class
 
-type Interpretable t m a b = (Reflex t, MonadHold t m, MonadFix m)
+type Interpretable t m a b = MonadHold t m
                            => Event t a
                            -> m (Event t b)
 

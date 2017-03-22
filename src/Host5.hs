@@ -25,7 +25,6 @@ import Data.Dependent.Sum
 
 import Reflex
 import Reflex.Host.Class
-import Reflex.PerformEvent.Base
 
 -- I'm going to assume that you've read through Host4.hs prior to this.
 
@@ -50,11 +49,8 @@ import Reflex.PerformEvent.Base
 -- make things easier for our users.
 
 -- Other than that, the main thing to look out for is the use of 'PerformEventT':
-type SampleApp5 t m = ( Reflex t
-                      , Ref m ~ Ref IO
+type SampleApp5 t m = ( Ref m ~ Ref IO
                       , ReflexHost t
-                      , MonadRef (HostFrame t)
-                      , Ref (HostFrame t) ~ Ref IO
                       , MonadIO (HostFrame t)
                       , PrimMonad (HostFrame t)
                       )

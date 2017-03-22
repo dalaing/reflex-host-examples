@@ -17,8 +17,7 @@ module Host6 (
   ) where
 
 import Data.Maybe (isJust)
-import Control.Monad (unless, void, forever)
-import Control.Monad.Fix (MonadFix)
+import Control.Monad (unless)
 import Control.Monad.Identity (Identity(..))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Ref
@@ -30,7 +29,6 @@ import Data.Dependent.Sum
 
 import Reflex
 import Reflex.Host.Class
-import Reflex.PerformEvent.Base
 
 data Input t = Input {
     ieOpen :: Event t ()
@@ -42,23 +40,17 @@ data Output t = Output {
   , oeQuit  :: Event t ()
   }
 
-type SampleApp6 t m = (Reflex t, MonadHold t m, MonadFix m)
+type SampleApp6 t m = (Reflex t, MonadHold t m)
                   => Input t
                   -> m (Output t)
 
-type SampleApp6IO t m = ( Reflex t
-                      , MonadHold t m
-                      , MonadFix m
-                      , MonadRef m
-                      , Ref m ~ Ref IO
-                      , ReflexHost t
-                      , MonadRef (HostFrame t)
-                      , Ref (HostFrame t) ~ Ref IO
-                      , MonadIO (HostFrame t)
-                      , PrimMonad (HostFrame t)
-                      )
-                  => Output t
-                  -> PerformEventT t m (Event t ())
+type SampleApp6IO t m = ( Ref m ~ Ref IO
+                        , ReflexHost t
+                        , MonadIO (HostFrame t)
+                        , PrimMonad (HostFrame t)
+                        )
+                      => Output t
+                      -> PerformEventT t m (Event t ())
 
 host :: (forall t m. SampleApp6 t m)
      -> (forall t m. SampleApp6IO t m)
