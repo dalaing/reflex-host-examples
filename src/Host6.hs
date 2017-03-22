@@ -22,6 +22,7 @@ import Control.Monad.Fix (MonadFix)
 import Control.Monad.Identity (Identity(..))
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Ref
+import Control.Monad.Primitive (PrimMonad)
 import Data.IORef (readIORef)
 import System.IO
 
@@ -54,6 +55,7 @@ type SampleApp6IO t m = ( Reflex t
                       , MonadRef (HostFrame t)
                       , Ref (HostFrame t) ~ Ref IO
                       , MonadIO (HostFrame t)
+                      , PrimMonad (HostFrame t)
                       )
                   => Output t
                   -> PerformEventT t m (Event t ())
