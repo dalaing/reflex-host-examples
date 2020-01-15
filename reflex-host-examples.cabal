@@ -27,14 +27,14 @@ library
                      -- , Interpret2
   -- other-modules:       
   other-extensions:    RankNTypes
-  build-depends:       base          >= 4.8  && < 4.10
+  build-depends:       base          >= 4.8  && < 4.13
                      , mtl           >= 2.2  && < 2.3
                      , transformers  >= 0.5  && < 0.6
-                     , dependent-sum >= 0.3  && < 0.5
-                     , dependent-map >= 0.2  && < 0.3
+                     , dependent-sum >= 0.3  && < 0.7
+                     , dependent-map >= 0.2  && < 0.4
                      , ref-tf        >= 0.4  && < 0.5
                      , lens          >= 4.13 && < 5.0
-                     , reflex        >= 0.5  && < 0.6
+                     , reflex        >= 0.5  && < 0.7
                      , primitive     >= 0.6  && < 0.7
   hs-source-dirs:      src
   ghc-options:         -Wall
@@ -45,8 +45,8 @@ test-suite doctests
   type:               exitcode-stdio-1.0
   ghc-options:        -threaded
   main-is:            doctests.hs
-  build-depends:      base       >= 4.8  && < 4.10
-                    , doctest    >= 0.11 && < 0.12
-                    , QuickCheck >= 2.8  && < 2.9
+  build-depends:      base       >= 4.8  && < 4.13
+                    , doctest    >= 0.11 && < 0.17
+                    , QuickCheck >= 2.8  && < 2.14
                     , reflex-host-examples
   hs-source-dirs:     tests

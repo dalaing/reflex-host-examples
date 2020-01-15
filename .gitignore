@@ -1,2 +1,6 @@
 TAGS
+*.swp
 dist
+dist-newstyle
+result
+cabal.project.local*
